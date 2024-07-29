@@ -1,0 +1,45 @@
+services:
+  registry:
+      image: registry
+      restart: always
+      ports:
+        - 5005:5005
+      volumes:
+        - /home/tretyakov/jenkins/registry:/var/lib/registry
+      hostname: registry
+      environment:
+        - REGISTRY_HTTP_ADDR=0.0.0.0:5005
+  jenkins:
+      image: jenkins/jenkins
+      hostname: jenkins
+      restart: always
+      user: root
+      ports:
+        - 8087:8080
+      environment:
+        - JAVA_OPTS="-Dhudson.model.DownloadService.noSignatureCheck=true"
+        - DOCKER_HOST=unix:///var/run/docker.sock
+        - JENKINS_USER=root
+      volumes:
+        - /home/tretyakov/jenkins/jenkins_home:/var/jenkins_home
+        - /var/run/docker.sock:/var/run/docker.sock
+      networks:
+        - selenoid_tretyakov
+  nginx:
+      image: nginx
+      hostname: nginx
+      restart: always
+      privileged: true
+      depends_on:
+        - jenkins
+      ports:
+        - 77:80
+      volumes:
+        - /home/tretyakov/jenkins/nginx:/etc/nginx/conf.d
+        - /etc/localtime:/etc/localtime
+      networks:
+        - selenoid_tretyakov
+
+networks:
+  selenoid_tretyakov:
+    external: true

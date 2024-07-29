@@ -1,0 +1,41 @@
+FROM jenkins/inbound-agent:jdk17
+
+USER root
+
+ARG MAVEN_VERSION=3.8.6
+
+ENV MAVEN_HOME="/opt/maven"
+ENV MAVEN_CONFIG_HOME="/home/jenkins/.m2"
+
+RUN mkdir -p $MAVEN_HOME
+
+RUN curl -LSso /var/tmp/apache-maven-$MAVEN_VERSION-bin.tar.gz https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/$MAVEN_VERSION/apache-maven-$MAVEN_VERSION-bin.tar.gz 
+
+RUN tar xzvf /var/tmp/apache-maven-$MAVEN_VERSION-bin.tar.gz -C $MAVEN_HOME --strip-components=1
+RUN rm /var/tmp/apache-maven-$MAVEN_VERSION-bin.tar.gz
+RUN update-alternatives --install /usr/bin/mvn mvn /opt/maven/bin/mvn 10000
+RUN mkdir -p $MAVEN_CONFIG_HOME
+
+RUN apt-get update && apt-get install -y \
+    curl \
+    tar \
+    apt-transport-https \
+    ca-certificates \
+    gnupg \
+    lsb-release
+
+# Добавление официальных GPG ключей Docker
+RUN curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+
+# Настройка стабильного репозитория Docker
+RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list
+
+# Установка Docker Engine
+RUN apt-get update && apt-get install -y docker-ce docker-ce-cli containerd.io
+
+# Копируем и настраиваем скрипт для запуска SSH агента
+COPY start-ssh-agent.sh /usr/local/bin/start-ssh-agent.sh
+RUN chmod +x /usr/local/bin/start-ssh-agent.sh
+
+# Запуск Docker Daemon при старте контейнера
+CMD ["sh", "-c", "service docker start && /usr/local/bin/start-ssh-agent.sh && tail -f /dev/null"]

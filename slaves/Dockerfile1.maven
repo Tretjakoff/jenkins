@@ -1,0 +1,44 @@
+# Используем образ Docker-in-Docker
+FROM docker:24.0.6-dind
+
+# Переключаемся на пользователя root для установки зависимостей
+USER root
+
+# Создаем директорию для проекта
+RUN mkdir -p /home/ubuntu/ui-test
+
+# Устанавливаем необходимые пакеты
+RUN apk update && apk add --no-cache \
+    bash \
+    curl \
+    wget \
+    gnupg \
+    unzip \
+    sudo \
+    openjdk17 \
+    maven \
+    git
+
+# Установка Google Chrome и ChromeDriver
+RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --import && \
+    echo "http://dl-3.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories && \
+    echo "http://dl-3.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories && \
+    apk update && \
+    apk add --no-cache chromium && \
+    CHROMEDRIVER_VERSION=$(curl -sS chromedriver.storage.googleapis.com/LATEST_RELEASE) && \
+    wget -O /tmp/chromedriver.zip https://chromedriver.storage.googleapis.com/$CHROMEDRIVER_VERSION/chromedriver_linux64.zip && \
+    unzip /tmp/chromedriver.zip chromedriver -d /usr/local/bin/ && \
+    rm /tmp/chromedriver.zip
+
+# Установка Allure
+RUN wget -qO- --show-progress https://github.com/allure-framework/allure2/releases/download/2.27.0/allure-2.27.0.tgz | tar -zx -C /opt/
+ENV PATH=$PATH:/opt/allure-2.27.0/bin
+
+# Добавляем скрипт dockerd-entrypoint.sh
+COPY dockerd-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/dockerd-entrypoint.sh
+
+ENTRYPOINT ["dockerd-entrypoint.sh"]
+
+# Запуск Docker daemon
+CMD ["dockerd"]
